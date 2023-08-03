@@ -1,6 +1,5 @@
 package com.hbdev.springbootproducts.controllers;
 
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,7 +21,17 @@ import com.hbdev.springbootproducts.RecordDto.ProductRecordDto;
 import com.hbdev.springbootproducts.models.ProductModel;
 import com.hbdev.springbootproducts.repositories.ProductRepository;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 import jakarta.validation.Valid;
+
+/*
+ * import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+ * import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+ *
+ * PROBLEMA PARA IMPORTAR 
+ * */
 
 @RestController
 @RequestMapping("/api/products")
@@ -40,41 +49,50 @@ public class ProductController {
 
 	@GetMapping
 	public ResponseEntity<List<ProductModel>> getAllProduct() {
-		return ResponseEntity.status(HttpStatus.OK).body(productRepository.findAll());
+		List<ProductModel> productList = productRepository.findAll();
+		if (!productList.isEmpty()) {
+			for (ProductModel product : productList) {
+				// -> PRA CADA PRODUTO ENCONTRADO EM List<ProductModel> OBTINHA O ID
+				// product.getIdProduct() E ATRIBUA UMA POR UM A UUID id
+				UUID id = product.getIdProduct();
+				product.add(linkTo(methodOn(ProductController.class).getOneProduct(id)).withSelfRel());
+			}
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(productList);
 	}
 
 	@GetMapping("/{id}")
 	public ResponseEntity<Object> getOneProduct(@PathVariable(value = "id") UUID id) {
 		Optional<ProductModel> optional = productRepository.findById(id);
-		if(optional.isEmpty()) {
-			return  ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
+		if (optional.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
-		return ResponseEntity.status(HttpStatus.OK).body(optional.get());
 		
+		optional.get().add(linkTo(methodOn(ProductController.class).getAllProduct()).withSelfRel());
+		return ResponseEntity.status(HttpStatus.OK).body(optional.get());
+
 	}
-	
+
 	@PutMapping("/{id}")
-	public ResponseEntity<Object> upDateProduct(@PathVariable(value = "id") UUID id, 
-			@RequestBody @Valid ProductRecordDto productRecordDto ) {
+	public ResponseEntity<Object> upDateProduct(@PathVariable(value = "id") UUID id,
+			@RequestBody @Valid ProductRecordDto productRecordDto) {
 		Optional<ProductModel> optional = productRepository.findById(id);
-		if(optional.isEmpty()) {
-			return  ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
+		if (optional.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
 		var productModel = optional.get();
 		BeanUtils.copyProperties(productRecordDto, productModel);
 		return ResponseEntity.status(HttpStatus.OK).body(productRepository.save(productModel));
 	}
-	
+
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Object> deleteProduct(@PathVariable(value = "id") UUID id) {
 		Optional<ProductModel> optional = productRepository.findById(id);
-		if(optional.isEmpty()) {
-			return  ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
+		if (optional.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
 		productRepository.delete(optional.get());
 		return ResponseEntity.status(HttpStatus.OK).body("Deleted successfully...");
 	}
-	
-	
-	
+
 }
