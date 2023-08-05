@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.hbdev.springbootproducts.RecordDto.ProductRecordDto;
 import com.hbdev.springbootproducts.models.ProductModel;
 import com.hbdev.springbootproducts.repositories.ProductRepository;
+import com.hbdev.springbootproducts.services.ProductService;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
@@ -38,24 +39,31 @@ import jakarta.validation.Valid;
 public class ProductController {
 
 	@Autowired
-	ProductRepository productRepository;
+	ProductService productService;
 
 	@PostMapping
 	public ResponseEntity<ProductModel> saveProduct(@RequestBody @Valid ProductRecordDto productRecordDto) {
 		var productModel = new ProductModel();
 		BeanUtils.copyProperties(productRecordDto, productModel);
-		return ResponseEntity.status(HttpStatus.CREATED).body(productRepository.save(productModel));
+		return ResponseEntity.status(HttpStatus.CREATED).body(productService.save(productModel));
 	}
 
 	@GetMapping
 	public ResponseEntity<List<ProductModel>> getAllProduct() {
-		List<ProductModel> productList = productRepository.findAll();
+		List<ProductModel> productList = productService.findAll();
 		if (!productList.isEmpty()) {
 			for (ProductModel product : productList) {
+				//PRECISO PASSAR POR CADA UM DELES PRA CRIAR UM LINK HATEOS DE FORMA DINAMICA
 				// -> PRA CADA PRODUTO ENCONTRADO EM List<ProductModel> OBTINHA O ID
 				// product.getIdProduct() E ATRIBUA UMA POR UM A UUID id
 				UUID id = product.getIdProduct();
-				product.add(linkTo(methodOn(ProductController.class).getOneProduct(id)).withSelfRel());
+				//CRIA O LINK DE FORMA DINAMICA
+				product.add(linkTo(methodOn(ProductController.class).getOneProduct(id)).withRel("Link do Produto"));
+				//import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+				//import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+				//linkTo e o methodOn FAZEM PARTE DO PROJETO WebMvcLinkBuilder ELES QUE VÃO CONSTRUIR 
+				//ESSA URI PARA SATISFAZER O PRINCIPIO HATEOAS
+				//withRel("Link do Produto"))
 			}
 		}
 		return ResponseEntity.status(HttpStatus.OK).body(productList);
@@ -63,12 +71,12 @@ public class ProductController {
 
 	@GetMapping("/{id}")
 	public ResponseEntity<Object> getOneProduct(@PathVariable(value = "id") UUID id) {
-		Optional<ProductModel> optional = productRepository.findById(id);
+		Optional<ProductModel> optional = productService.findById(id);
 		if (optional.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
-		
-		optional.get().add(linkTo(methodOn(ProductController.class).getAllProduct()).withSelfRel());
+		//get()-> EXTRAI O DADO DE DENTRO DA VARIAVEL optional
+		optional.get().add(linkTo(methodOn(ProductController.class).getAllProduct()).withRel("Link para Lista de Produtos"));
 		return ResponseEntity.status(HttpStatus.OK).body(optional.get());
 
 	}
@@ -76,22 +84,22 @@ public class ProductController {
 	@PutMapping("/{id}")
 	public ResponseEntity<Object> upDateProduct(@PathVariable(value = "id") UUID id,
 			@RequestBody @Valid ProductRecordDto productRecordDto) {
-		Optional<ProductModel> optional = productRepository.findById(id);
+		Optional<ProductModel> optional = productService.findById(id);
 		if (optional.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
 		var productModel = optional.get();
 		BeanUtils.copyProperties(productRecordDto, productModel);
-		return ResponseEntity.status(HttpStatus.OK).body(productRepository.save(productModel));
+		return ResponseEntity.status(HttpStatus.OK).body(productService.save(productModel));
 	}
 
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Object> deleteProduct(@PathVariable(value = "id") UUID id) {
-		Optional<ProductModel> optional = productRepository.findById(id);
+		Optional<ProductModel> optional = productService.findById(id);
 		if (optional.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not Found");
 		}
-		productRepository.delete(optional.get());
+		productService.deleteById(id);            
 		return ResponseEntity.status(HttpStatus.OK).body("Deleted successfully...");
 	}
 
